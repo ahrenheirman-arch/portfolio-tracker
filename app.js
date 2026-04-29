@@ -49,7 +49,7 @@ function useLocalStorage(key, def) {
   return [val, setVal];
 }
 
-function App() {
+export default function App() {
   const [txns, setTxns] = useLocalStorage("inv_txns_v2", SAMPLE_TXNS);
   const [tab, setTab] = useState("dashboard");
   const [period, setPeriod] = useState("1Y");
@@ -69,11 +69,11 @@ function App() {
     try {
       const allSyms = [...tickers, ...Object.values(BENCHMARKS)];
       const outputsize = PERIOD_DAYS[period] > 365 ? 730 : PERIOD_DAYS[period] + 10;
-      const [quotes, hist] = await Promise.all([
-        apiFetch("quote", allSyms),
-        apiFetch("history", allSyms, outputsize),
-      ]);
+      // Fetch quotes first so metric cards populate immediately
+      const quotes = await apiFetch("quote", tickers);
       setPrices(quotes);
+      // Then fetch all history (takes longer due to rate limiting)
+      const hist = await apiFetch("history", allSyms, outputsize);
       setHistory(hist);
     } catch(e) { console.error(e); }
     setLoading(false);
@@ -408,5 +408,3 @@ function PerfChart({ portfolioHistory, benchHistory, activeBench, portReturn }) 
     </div>
   );
 }
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(App));
