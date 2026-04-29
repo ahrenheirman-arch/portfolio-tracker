@@ -49,7 +49,7 @@ function useLocalStorage(key, def) {
   return [val, setVal];
 }
 
-export default function App() {
+function App() {
   const [txns, setTxns] = useLocalStorage("inv_txns_v2", SAMPLE_TXNS);
   const [tab, setTab] = useState("dashboard");
   const [period, setPeriod] = useState("1Y");
