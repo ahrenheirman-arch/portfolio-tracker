@@ -1,17 +1,415 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portfolio Tracker</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Portfolio Tracker</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#fff;--bg2:#f5f5f4;--bg3:#eeedea;--text:#1a1a1a;--text2:#6b6b6b;--border:rgba(0,0,0,0.12);--success:#16a34a;--danger:#dc2626;--r:8px;--rl:12px}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1c;--bg2:#2a2a2a;--bg3:#333;--text:#f0f0f0;--text2:#999;--border:rgba(255,255,255,0.12)}}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg3);color:var(--text);font-size:15px;line-height:1.5;min-height:100vh}
+#root{max-width:860px;margin:0 auto;padding:2rem 1rem}
+.card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--rl);padding:1rem 1.25rem;margin-bottom:1.25rem}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.25rem}
+.metric{background:var(--bg2);border-radius:var(--r);padding:12px 16px}
+.ml{font-size:12px;color:var(--text2);margin-bottom:4px}
+.mv{font-size:22px;font-weight:500}
+.tabs{display:flex;gap:6px;margin-bottom:1.5rem;flex-wrap:wrap}
+.tab{padding:7px 16px;border-radius:var(--r);border:.5px solid transparent;background:transparent;color:var(--text);cursor:pointer;font-size:14px}
+.tab.active{border-color:var(--border);background:var(--bg2);font-weight:500}
+.pbtn{padding:3px 10px;border-radius:var(--r);border:.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px}
+.pbtn.active{background:var(--bg2);font-weight:500}
+.bbtn{padding:3px 12px;border-radius:20px;cursor:pointer;font-size:11px;font-weight:500}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:right;padding:4px 8px;color:var(--text2);font-weight:400}
+th.l{text-align:left}
+td{padding:8px;border-top:.5px solid var(--border);text-align:right}
+td.l{text-align:left}
+.success{color:var(--success)}
+.danger{color:var(--danger)}
+input,select{width:100%;padding:7px 10px;border:.5px solid var(--border);border-radius:var(--r);background:var(--bg2);color:var(--text);font-size:13px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:10px}
+.btn{padding:8px 20px;border-radius:var(--r);border:.5px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;font-size:13px}
+.btn:hover{background:var(--bg3)}
+.dbtn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin-bottom:10px}
+.li{display:flex;align-items:center;gap:5px}
+.ld{width:10px;height:10px;border-radius:2px}
+.lda{width:14px;height:2px}
+.topbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1.5rem}
+.rbtn{padding:6px 14px;border-radius:var(--r);border:.5px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;font-size:13px}
+.cc{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.empty{color:var(--text2);font-size:13px;padding:8px 0}
+.info{font-size:13px;color:var(--text2);line-height:1.6}
+code{font-family:monospace;background:var(--bg2);padding:1px 5px;border-radius:4px;font-size:12px}
+.cerr{color:var(--danger);font-size:12px;margin-top:6px}
+.periods{display:flex;gap:6px;flex-wrap:wrap}
+h1{font-size:22px;font-weight:500}
+h2{font-size:14px;font-weight:500;margin-bottom:12px}
+</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
-  <script type="text/babel" src="app.js"></script>
+<div id="root"></div>
+<script>
+const {useState,useEffect,useMemo,useCallback,useRef}=React;
+const BENCHMARKS={"S&P 500":"SPY","Nasdaq":"QQQ","MSCI World":"URTH"};
+const PERIODS=["1W","1M","6M","1Y","All"];
+const PD={"1W":7,"1M":30,"6M":180,"1Y":365,"All":99999};
+const COLORS={portfolio:"#4f7fdb","S&P 500":"#e07b39","Nasdaq":"#8b5cf6","MSCI World":"#16a34a"};
+const SAMPLE=[
+  {id:1,ticker:"AAPL",date:"2023-01-15",shares:10,price:135.94,type:"buy"},
+  {id:2,ticker:"MSFT",date:"2023-03-10",shares:5,price:276.20,type:"buy"},
+  {id:3,ticker:"AAPL",date:"2024-06-01",shares:3,price:192.35,type:"sell"},
+  {id:4,ticker:"NVDA",date:"2024-09-01",shares:4,price:116.78,type:"buy"},
+];
+
+function xirr(cfs){
+  if(cfs.length<2)return null;
+  const s=[...cfs].sort((a,b)=>a.date-b.date);
+  const t0=s[0].date;
+  const fl=s.map(c=>({a:c.amount,t:(c.date-t0)/(365*24*3600*1000)}));
+  let r=0.1;
+  for(let i=0;i<100;i++){
+    let f=0,df=0;
+    for(const{a,t}of fl){const v=Math.pow(1+r,t);f+=a/v;df+=-t*a/(v*(1+r));}
+    if(Math.abs(df)<1e-12)break;
+    const nr=r-f/df;
+    if(Math.abs(nr-r)<1e-8){r=nr;break;}
+    r=nr;
+  }
+  return isFinite(r)?r:null;
+}
+
+const fc=(n,d=2)=>n==null?"—":new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:d,maximumFractionDigits:d}).format(n);
+const fp=(n,d=2)=>n==null?"—":(n>=0?"+":"")+n.toFixed(d)+"%";
+
+function useLS(key,def){
+  const[v,sv]=useState(()=>{try{const s=localStorage.getItem(key);return s?JSON.parse(s):def;}catch{return def;}});
+  useEffect(()=>{try{localStorage.setItem(key,JSON.stringify(v));}catch{}},[key,v]);
+  return[v,sv];
+}
+
+async function api(type,symbols,outputsize){
+  const qs=outputsize?`&outputsize=${outputsize}`:"";
+  const r=await fetch(`/api/prices?type=${type}&symbols=${encodeURIComponent(symbols.join(","))}${qs}`);
+  return r.json();
+}
+
+function App(){
+  const[txns,setTxns]=useLS("inv_txns_v3",SAMPLE);
+  const[tab,setTab]=useState("dashboard");
+  const[period,setPeriod]=useState("1Y");
+  const[prices,setPrices]=useState({});
+  const[history,setHistory]=useState({});
+  const[loading,setLoading]=useState(false);
+  const[activeBench,setActiveBench]=useState(["S&P 500"]);
+  const[form,setForm]=useState({ticker:"",date:"",shares:"",price:"",type:"buy"});
+  const[nextId,setNextId]=useState(200);
+  const[csvErr,setCsvErr]=useState("");
+
+  const tickers=useMemo(()=>[...new Set(txns.map(t=>t.ticker))],[txns]);
+
+  const loadPrices=useCallback(async()=>{
+    if(!tickers.length)return;
+    setLoading(true);
+    try{
+      const quotes=await api("quote",tickers);
+      setPrices(quotes);
+      const allSyms=[...tickers,...Object.values(BENCHMARKS)];
+      const outputsize=PD[period]>365?730:PD[period]+10;
+      const hist=await api("history",allSyms,outputsize);
+      setHistory(hist);
+    }catch(e){console.error(e);}
+    setLoading(false);
+  },[tickers,period]);
+
+  useEffect(()=>{loadPrices();},[loadPrices]);
+
+  const holdings=useMemo(()=>{
+    const map={};
+    for(const t of txns){
+      if(!map[t.ticker])map[t.ticker]={shares:0,cost:0,cashOut:0};
+      if(t.type==="buy"){map[t.ticker].shares+=+t.shares;map[t.ticker].cost+=+t.shares*+t.price;}
+      else{map[t.ticker].shares-=+t.shares;map[t.ticker].cashOut+=+t.shares*+t.price;}
+    }
+    return Object.entries(map).map(([ticker,h])=>{
+      const cur=prices[ticker];
+      const value=cur?h.shares*cur:null;
+      const gain=value!=null?value+h.cashOut-h.cost:null;
+      const pct=h.cost>0&&gain!=null?(gain/h.cost)*100:null;
+      return{ticker,...h,currentPrice:cur,value,gain,pct};
+    }).filter(h=>h.shares>0.0001);
+  },[txns,prices]);
+
+  const totalValue=useMemo(()=>holdings.reduce((s,h)=>s+(h.value||0),0),[holdings]);
+  const totalCost=useMemo(()=>holdings.reduce((s,h)=>s+h.cost,0),[holdings]);
+  const totalGain=totalValue-totalCost;
+
+  const irr=useMemo(()=>{
+    const flows=txns.map(t=>({date:new Date(t.date),amount:t.type==="buy"?-(+t.shares*+t.price):(+t.shares*+t.price)}));
+    if(totalValue>0)flows.push({date:new Date(),amount:totalValue});
+    return flows.length>=2?xirr(flows):null;
+  },[txns,totalValue]);
+
+  const portHistory=useMemo(()=>{
+    if(!Object.keys(history).length||!txns.length)return[];
+    const days=PD[period];
+    const cutoff=Date.now()-days*86400000;
+    const allDates=new Set();
+    for(const sym of tickers){if(history[sym])history[sym].forEach(p=>allDates.add(p.date));}
+    return[...allDates].filter(d=>d>=cutoff).sort().map(date=>{
+      let val=0;
+      for(const{ticker}of holdings){
+        const hist=history[ticker];if(!hist)continue;
+        const pt=[...hist].reverse().find(p=>p.date<=date);if(!pt)continue;
+        const sh=txns.filter(t=>new Date(t.date).getTime()<=date&&t.ticker===ticker).reduce((s,t)=>s+(t.type==="buy"?+t.shares:-+t.shares),0);
+        val+=sh*pt.price;
+      }
+      return{date,value:val};
+    });
+  },[history,txns,holdings,period,tickers]);
+
+  const benchHistory=useMemo(()=>{
+    const out={};
+    if(!portHistory.length)return out;
+    const portBase=portHistory[0]?.value||1;
+    for(const name of activeBench){
+      const sym=BENCHMARKS[name];
+      if(!history[sym])continue;
+      const cutoff=Date.now()-PD[period]*86400000;
+      const data=history[sym].filter(p=>p.date>=cutoff);
+      if(!data.length)continue;
+      const base=data[0].price;
+      out[name]=data.map(p=>({date:p.date,value:portBase*(p.price/base)}));
+    }
+    return out;
+  },[history,activeBench,period,portHistory]);
+
+  const portReturn=portHistory.length>=2?((portHistory[portHistory.length-1].value-portHistory[0].value)/portHistory[0].value)*100:null;
+
+  const addTxn=()=>{
+    if(!form.ticker||!form.date||!form.shares||!form.price)return;
+    setTxns(prev=>[...prev,{id:nextId,...form,ticker:form.ticker.toUpperCase(),shares:+form.shares,price:+form.price}]);
+    setNextId(n=>n+1);
+    setForm({ticker:"",date:"",shares:"",price:"",type:"buy"});
+  };
+
+  const handleCSV=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const lines=ev.target.result.split("\n").filter(l=>l.trim());
+        const headers=lines[0].split(",").map(h=>h.trim().toLowerCase());
+        if(!["ticker","date","shares","price","type"].every(h=>headers.includes(h))){setCsvErr("CSV must have: ticker, date, shares, price, type");return;}
+        const newT=lines.slice(1).map((l,i)=>{
+          const vals=l.split(",").map(v=>v.trim());
+          const obj=Object.fromEntries(headers.map((h,j)=>[h,vals[j]]));
+          return{id:nextId+i,ticker:obj.ticker.toUpperCase(),date:obj.date,shares:+obj.shares,price:+obj.price,type:obj.type.toLowerCase()};
+        });
+        setTxns(prev=>[...prev,...newT]);
+        setNextId(n=>n+newT.length);
+        setCsvErr("");
+      }catch{setCsvErr("Failed to parse CSV.");}
+    };
+    reader.readAsText(file);e.target.value="";
+  };
+
+  const T=({label,k})=>React.createElement("button",{className:`tab${tab===k?" active":""}`,onClick:()=>setTab(k)},label);
+  const P=({p})=>React.createElement("button",{className:`pbtn${period===p?" active":""}`,onClick:()=>setPeriod(p)},p);
+
+  const metrics=[
+    ["Portfolio value",fc(totalValue),null],
+    ["Total gain/loss",fc(totalGain),totalGain>=0?"success":"danger"],
+    ["Return (cost basis)",totalCost>0?fp((totalGain/totalCost)*100):"—",totalGain>=0?"success":"danger"],
+    ["IRR (annualised)",irr!=null?fp(irr*100):"—",irr!=null&&irr>=0?"success":"danger"],
+  ];
+
+  return React.createElement("div",null,
+    React.createElement("div",{className:"topbar"},
+      React.createElement("div",null,
+        React.createElement("h1",null,"Portfolio tracker"),
+        React.createElement("p",{style:{fontSize:13,color:"var(--text2)",marginTop:2}},"IRR & benchmark comparison")
+      ),
+      React.createElement("button",{className:"rbtn",onClick:loadPrices,disabled:loading},loading?"Refreshing…":"Refresh prices")
+    ),
+    React.createElement("div",{className:"tabs"},
+      React.createElement(T,{label:"Dashboard",k:"dashboard"}),
+      React.createElement(T,{label:"Transactions",k:"txns"}),
+      React.createElement(T,{label:"Analysis",k:"analysis"})
+    ),
+    tab==="dashboard"&&React.createElement("div",null,
+      React.createElement("div",{className:"mgrid"},
+        metrics.map(([label,val,cls])=>React.createElement("div",{className:"metric",key:label},
+          React.createElement("div",{className:"ml"},label),
+          React.createElement("div",{className:`mv${cls?" "+cls:""}` },val)
+        ))
+      ),
+      React.createElement("div",{className:"card"},
+        React.createElement("div",{className:"cc"},
+          React.createElement("h2",{style:{margin:0}},"Performance"),
+          React.createElement("div",{className:"periods"},PERIODS.map(p=>React.createElement(P,{key:p,p})))
+        ),
+        React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}},
+          Object.keys(BENCHMARKS).map(b=>React.createElement("button",{
+            key:b,className:"bbtn",
+            onClick:()=>setActiveBench(prev=>prev.includes(b)?prev.filter(x=>x!==b):[...prev,b]),
+            style:{border:`1px solid ${COLORS[b]}`,background:activeBench.includes(b)?COLORS[b]:"transparent",color:activeBench.includes(b)?"#fff":COLORS[b]}
+          },b))
+        ),
+        React.createElement(PerfChart,{portHistory,benchHistory,activeBench,portReturn})
+      ),
+      React.createElement("div",{className:"card"},
+        React.createElement("h2",null,"Holdings"),
+        holdings.length===0
+          ?React.createElement("p",{className:"empty"},"No holdings yet.")
+          :React.createElement("div",{style:{overflowX:"auto"}},
+            React.createElement("table",null,
+              React.createElement("thead",null,React.createElement("tr",null,
+                ["Ticker","Shares","Avg cost","Current","Value","Gain/Loss","Return"].map((h,i)=>React.createElement("th",{key:h,className:i===0?"l":""},h))
+              )),
+              React.createElement("tbody",null,holdings.map(h=>React.createElement("tr",{key:h.ticker},
+                React.createElement("td",{className:"l",style:{fontWeight:500}},h.ticker),
+                React.createElement("td",null,(+h.shares).toFixed(4)),
+                React.createElement("td",null,fc(h.cost/h.shares)),
+                React.createElement("td",null,h.currentPrice?fc(h.currentPrice):"—"),
+                React.createElement("td",null,h.value?fc(h.value):"—"),
+                React.createElement("td",{className:h.gain>=0?"success":"danger"},h.gain!=null?fc(h.gain):"—"),
+                React.createElement("td",{className:h.pct>=0?"success":"danger"},h.pct!=null?fp(h.pct):"—")
+              )))
+            )
+          )
+      )
+    ),
+    tab==="txns"&&React.createElement("div",null,
+      React.createElement("div",{className:"card"},
+        React.createElement("h2",null,"Add transaction"),
+        React.createElement("div",{className:"fgrid"},
+          React.createElement("input",{placeholder:"Ticker (e.g. AAPL)",value:form.ticker,onChange:e=>setForm(f=>({...f,ticker:e.target.value.toUpperCase()}))}),
+          React.createElement("input",{type:"date",value:form.date,onChange:e=>setForm(f=>({...f,date:e.target.value}))}),
+          React.createElement("input",{type:"number",placeholder:"Shares",value:form.shares,onChange:e=>setForm(f=>({...f,shares:e.target.value}))}),
+          React.createElement("input",{type:"number",placeholder:"Price per share",value:form.price,onChange:e=>setForm(f=>({...f,price:e.target.value}))}),
+          React.createElement("select",{value:form.type,onChange:e=>setForm(f=>({...f,type:e.target.value}))},
+            React.createElement("option",{value:"buy"},"Buy"),
+            React.createElement("option",{value:"sell"},"Sell")
+          )
+        ),
+        React.createElement("button",{className:"btn",onClick:addTxn},"Add transaction")
+      ),
+      React.createElement("div",{className:"card"},
+        React.createElement("h2",null,"Import CSV"),
+        React.createElement("p",{className:"info",style:{marginBottom:8}},"Columns required: ",React.createElement("code",null,"ticker, date, shares, price, type")),
+        React.createElement("input",{type:"file",accept:".csv",onChange:handleCSV}),
+        csvErr&&React.createElement("p",{className:"cerr"},csvErr)
+      ),
+      React.createElement("div",{className:"card"},
+        React.createElement("h2",null,"Transaction history"),
+        React.createElement("div",{style:{overflowX:"auto"}},
+          React.createElement("table",null,
+            React.createElement("thead",null,React.createElement("tr",null,
+              ["Date","Ticker","Type","Shares","Price","Total",""].map((h,i)=>React.createElement("th",{key:i,className:i<3?"l":""},h))
+            )),
+            React.createElement("tbody",null,[...txns].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>React.createElement("tr",{key:t.id},
+              React.createElement("td",{className:"l"},t.date),
+              React.createElement("td",{className:"l",style:{fontWeight:500}},t.ticker),
+              React.createElement("td",{className:"l "+(t.type==="buy"?"success":"danger")},t.type),
+              React.createElement("td",null,(+t.shares).toFixed(4)),
+              React.createElement("td",null,fc(+t.price)),
+              React.createElement("td",null,fc(+t.shares*+t.price)),
+              React.createElement("td",{style:{textAlign:"center"}},React.createElement("button",{className:"dbtn",onClick:()=>setTxns(prev=>prev.filter(x=>x.id!==t.id))},"✕"))
+            )))
+          )
+        )
+      )
+    ),
+    tab==="analysis"&&React.createElement("div",null,
+      React.createElement("div",{className:"mgrid"},
+        [
+          ["IRR (annualised)",irr!=null?fp(irr*100):"Insufficient data",irr!=null&&irr>=0?"success":"danger"],
+          ["Total invested",fc(txns.filter(t=>t.type==="buy").reduce((s,t)=>s+(+t.shares*+t.price),0)),null],
+          ["Total sold",fc(txns.filter(t=>t.type==="sell").reduce((s,t)=>s+(+t.shares*+t.price),0)),null],
+          ["Current value",fc(totalValue),null],
+        ].map(([label,val,cls])=>React.createElement("div",{className:"metric",key:label},
+          React.createElement("div",{className:"ml"},label),
+          React.createElement("div",{className:`mv${cls?" "+cls:""}` },val)
+        ))
+      ),
+      React.createElement("div",{className:"card"},
+        React.createElement("h2",null,"What is IRR?"),
+        React.createElement("p",{className:"info"},"The Internal Rate of Return is the annualised return accounting for the timing of every cash flow. Unlike simple return, investing at a low point counts for more. Compare your IRR directly to benchmark returns to evaluate real performance.")
+      ),
+      React.createElement("div",{className:"card"},
+        React.createElement("h2",null,"Per-holding IRR"),
+        React.createElement("div",{style:{overflowX:"auto"}},
+          React.createElement("table",null,
+            React.createElement("thead",null,React.createElement("tr",null,
+              ["Ticker","Invested","Current value","IRR"].map((h,i)=>React.createElement("th",{key:h,className:i===0?"l":""},h))
+            )),
+            React.createElement("tbody",null,tickers.map(ticker=>{
+              const tT=txns.filter(t=>t.ticker===ticker);
+              const hld=holdings.find(h=>h.ticker===ticker);
+              const flows=tT.map(t=>({date:new Date(t.date),amount:t.type==="buy"?-(+t.shares*+t.price):(+t.shares*+t.price)}));
+              if(hld?.value)flows.push({date:new Date(),amount:hld.value});
+              const r=flows.length>=2?xirr(flows):null;
+              const invested=tT.filter(t=>t.type==="buy").reduce((s,t)=>s+(+t.shares*+t.price),0);
+              return React.createElement("tr",{key:ticker},
+                React.createElement("td",{className:"l",style:{fontWeight:500}},ticker),
+                React.createElement("td",null,fc(invested)),
+                React.createElement("td",null,hld?.value?fc(hld.value):"—"),
+                React.createElement("td",{className:r!=null&&r>=0?"success":"danger"},r!=null?fp(r*100):"—")
+              );
+            }))
+          )
+        )
+      )
+    )
+  );
+}
+
+function PerfChart({portHistory,benchHistory,activeBench,portReturn}){
+  const ref=useRef(null);
+  const chartRef=useRef(null);
+  useEffect(()=>{
+    if(!ref.current||!portHistory.length)return;
+    if(chartRef.current){chartRef.current.destroy();chartRef.current=null;}
+    const allDates=new Set(portHistory.map(p=>p.date));
+    for(const pts of Object.values(benchHistory))pts.forEach(p=>allDates.add(p.date));
+    const sorted=[...allDates].sort();
+    const portMap=Object.fromEntries(portHistory.map(p=>[p.date,p.value]));
+    const bMaps=Object.fromEntries(Object.entries(benchHistory).map(([n,pts])=>[n,Object.fromEntries(pts.map(p=>[p.date,p.value]))]));
+    const every=Math.max(1,Math.floor(sorted.length/8));
+    const labels=sorted.map((d,i)=>i%every===0?new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"");
+    const datasets=[
+      {label:"Portfolio",data:sorted.map(d=>portMap[d]||null),borderColor:COLORS.portfolio,borderWidth:2,fill:false,tension:0.3,pointRadius:0,spanGaps:true},
+      ...activeBench.map(name=>({label:name,data:sorted.map(d=>bMaps[name]?.[d]||null),borderColor:COLORS[name],borderWidth:1.5,borderDash:[4,3],fill:false,tension:0.3,pointRadius:0,spanGaps:true}))
+    ];
+    chartRef.current=new Chart(ref.current,{
+      type:"line",data:{labels,datasets},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!=null?fc(ctx.parsed.y):""}`}}},
+        scales:{x:{ticks:{maxRotation:0,color:"#888",font:{size:11}},grid:{display:false}},y:{ticks:{color:"#888",font:{size:11},callback:v=>fc(v,0)},grid:{color:"rgba(128,128,128,0.1)"}}}
+      }
+    });
+  },[portHistory,benchHistory,activeBench]);
+
+  if(!portHistory.length)return React.createElement("div",{style:{height:220,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--text2)",fontSize:13}},"Loading chart data…");
+  return React.createElement("div",null,
+    React.createElement("div",{className:"legend"},
+      React.createElement("span",{className:"li"},React.createElement("span",{className:"ld",style:{background:COLORS.portfolio}}),"Portfolio "+(portReturn!=null?fp(portReturn):"")),
+      ...activeBench.map(b=>React.createElement("span",{key:b,className:"li"},React.createElement("span",{className:"lda",style:{background:COLORS[b]}}),b))
+    ),
+    React.createElement("div",{style:{position:"relative",height:240}},
+      React.createElement("canvas",{ref,role:"img","aria-label":"Portfolio performance chart"})
+    )
+  );
+}
+
+const root=ReactDOM.createRoot(document.getElementById("root"));
+root.render(React.createElement(App));
+</script>
 </body>
 </html>
