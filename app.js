@@ -408,3 +408,5 @@ function PerfChart({ portfolioHistory, benchHistory, activeBench, portReturn }) 
     </div>
   );
 }
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
