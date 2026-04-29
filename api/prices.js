@@ -1,6 +1,6 @@
 // -------------------------------------------------------
 // PASTE YOUR NEW API KEY ON THE LINE BELOW (between the quotes)
-const TWELVE_DATA_API_KEY = "5f1b16a20a6a455aa9623ee2da1d812f";
+const TWELVE_DATA_API_KEY = "YOUR_API_KEY_HERE";
 // -------------------------------------------------------
 
 const BENCHMARK_MAP = {
@@ -18,29 +18,32 @@ export default async function handler(req, res) {
 
   const syms = symbols.split(",").map(s => s.trim()).filter(Boolean);
 
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
   try {
     if (type === "quote") {
-      const results = await Promise.all(syms.map(async sym => {
+      const out = {};
+      for (const sym of syms) {
         const url = `https://api.twelvedata.com/price?symbol=${sym}&apikey=${TWELVE_DATA_API_KEY}`;
         const r = await fetch(url);
         const d = await r.json();
-        return { sym, price: d.price ? parseFloat(d.price) : null };
-      }));
-      const out = Object.fromEntries(results.map(r => [r.sym, r.price]));
+        out[sym] = d.price ? parseFloat(d.price) : null;
+        await delay(250);
+      }
       return res.status(200).json(out);
     }
 
     if (type === "history") {
       const outputsize = req.query.outputsize || 365;
-      const results = await Promise.all(syms.map(async sym => {
+      const out = {};
+      for (const sym of syms) {
         const url = `https://api.twelvedata.com/time_series?symbol=${sym}&interval=1day&outputsize=${outputsize}&apikey=${TWELVE_DATA_API_KEY}`;
         const r = await fetch(url);
         const d = await r.json();
-        if (!d.values) return { sym, data: [] };
-        const data = d.values.map(v => ({ date: new Date(v.datetime).getTime(), price: parseFloat(v.close) })).reverse();
-        return { sym, data };
-      }));
-      const out = Object.fromEntries(results.map(r => [r.sym, r.data]));
+        if (!d.values) { out[sym] = []; await delay(250); continue; }
+        out[sym] = d.values.map(v => ({ date: new Date(v.datetime).getTime(), price: parseFloat(v.close) })).reverse();
+        await delay(250);
+      }
       return res.status(200).json(out);
     }
 
